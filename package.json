@@ -12,6 +12,6 @@
     "lint": "npm run lint --workspace=web",
     "test": "npm run test:web && npm run test:ai",
     "test:web": "npm run test --workspace=web --if-present",
-    "test:ai": "python3 -m pytest apps/ai-service/tests -q"
+    "test:ai": "cd apps/ai-service && python3 -m pytest tests -q"
   }
 }
