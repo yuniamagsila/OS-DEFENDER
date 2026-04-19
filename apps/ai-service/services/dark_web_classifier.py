@@ -53,7 +53,7 @@ DARK_WEB_SIGNATURES: dict[str, tuple[str, str, list[str]]] = {
 PII_PATTERNS: dict[str, list[str]] = {
     "email": ["@", ".com", ".id"],
     "phone": ["+62", "08"],
-    "nik": ["1234567890123456"],  # pattern check only
+    "nik": ["nik", "ktp", "nomor induk"],  # 16-digit NIK detected via keyword context
     "credential": ["password", "pass:", "pwd:"],
     "financial": ["rekening", "kartu kredit", "cvv", "pin"],
 }

@@ -55,7 +55,7 @@ export function CaseChat({ caseId: _caseId, initialMessages = [], currentRole = 
                     : "bg-slate-100 text-slate-800"
                 }`}
               >
-                <p className="text-xs font-medium opacity-70 mb-1">{m.senderName}</p>
+                <p className="mb-1 text-xs font-medium opacity-70">{m.senderName}</p>
                 <p>{m.body}</p>
                 <p className="mt-1 text-xs opacity-50">
                   {new Date(m.createdAt).toLocaleTimeString("id-ID", {
