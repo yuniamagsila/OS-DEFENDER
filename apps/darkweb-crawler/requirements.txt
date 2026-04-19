@@ -1,0 +1,4 @@
+httpx[socks]==0.28.1
+apscheduler==3.10.4
+python-dotenv==1.2.2
+cryptography==46.0.5

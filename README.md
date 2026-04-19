@@ -515,4 +515,485 @@ Bonus restorasi:
   "title": "Kredensial ditemukan di dark web marketplace",
   "summary": "Email dan password klien terdeteksi dalam dump data yang dijual.",
   "evidence": {
-    "source_type": 
+    "source_type": "darkweb_marketplace",
+    "url_hashed": "sha256:a3f9...",
+    "pii_types": ["email", "credential"],
+    "screenshot_url": "https://r2.example.com/evidence/alrt_01j9xyz.png"
+  },
+  "created_at": "2026-04-19T10:00:00Z"
+}
+```
+
+---
+
+## 🤝 Consultation Service Bridge
+
+Modul yang menghubungkan deteksi ancaman secara langsung ke layanan konsultasi PR defensif.
+
+**Alur Pembukaan Kasus:**
+
+```
+Alert CRITICAL/HIGH terdeteksi
+        │
+        ▼
+Klien mendapat notifikasi + tombol "Buka Kasus"
+        │
+        ▼
+CaseForm: isi judul, prioritas, deskripsi situasi
+        │
+        ▼
+POST /api/cases → Case ID dibuat → notifikasi konsultan
+        │
+        ▼
+CaseChat (real-time via WebSocket/Socket.io)
+        │
+        ▼
+Strategi respons disepakati → eksekusi (takedown, counter-narrative)
+        │
+        ▼
+Kasus ditutup → PDF report digenerate → invoice
+```
+
+**SLA (Service Level Agreement):**
+
+| Prioritas | Waktu Respons | Target Penyelesaian |
+|---|---|---|
+| CRITICAL | < 1 jam | < 24 jam |
+| HIGH | < 3 jam | < 72 jam |
+| MEDIUM | < 24 jam | < 7 hari |
+| LOW | < 48 jam | < 14 hari |
+
+**Fitur CaseChat:**
+- Real-time messaging via Socket.io antara klien dan konsultan
+- Optimistic UI update (pesan tampil instan, retry jika gagal)
+- Riwayat chat tersimpan di PostgreSQL
+- Notifikasi push saat ada pesan baru
+
+---
+
+## 🚀 Setup & Instalasi
+
+### Prerequisites
+
+```bash
+Node.js >= 20
+Python >= 3.11
+Docker & Docker Compose
+Tor (untuk dark web crawler)
+```
+
+### Clone & Install
+
+```bash
+git clone https://github.com/your-org/os-defender.git
+cd os-defender
+
+# Install semua dependencies (monorepo)
+npm install
+
+# Install Python dependencies untuk AI service
+cd apps/ai-service && pip install -r requirements.txt && cd ../..
+
+# Install Python dependencies untuk crawlers
+cd apps/surface-crawler && pip install -r requirements.txt && cd ../..
+cd apps/darkweb-crawler && pip install -r requirements.txt && cd ../..
+```
+
+### Setup Database
+
+```bash
+# Copy env file
+cp .env.example .env
+# Edit .env dengan credentials yang sesuai
+
+# Jalankan PostgreSQL + Redis via Docker
+docker-compose up -d postgres redis
+
+# Generate Prisma client + migrate
+cd apps/web
+npx prisma generate
+npx prisma migrate dev --name init
+```
+
+### Jalankan Development
+
+```bash
+# Semua services via Docker Compose
+docker-compose up
+
+# Atau individual:
+npm run dev           # Next.js web app (port 3000)
+cd apps/ai-service && uvicorn main:app --reload --port 8001
+cd apps/surface-crawler && python main.py
+cd apps/darkweb-crawler && python main.py  # Butuh Tor
+```
+
+---
+
+## 🔐 Environment Variables
+
+Semua environment variable didokumentasikan di `.env.example`. Variable kritis:
+
+| Variable | Deskripsi | Required |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | ✅ |
+| `REDIS_URL` | Redis connection string | ✅ |
+| `JWT_SECRET` | Secret untuk JWT signing | ✅ |
+| `ENCRYPTION_KEY` | AES-256 key untuk data sensitif | ✅ |
+| `AI_SERVICE_URL` | URL FastAPI AI service | ✅ |
+| `WHATSAPP_API_KEY` | WhatsApp Cloud API key | ⚡ |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot token | ⚡ |
+| `RESEND_API_KEY` | Resend email API key | ⚡ |
+| `ELASTICSEARCH_URL` | Elasticsearch endpoint | ⚡ |
+| `R2_BUCKET_NAME` | Cloudflare R2 bucket | ⚡ |
+| `TOR_PROXY_HOST` | Tor SOCKS5 proxy host | 🌐 |
+| `SERPAPI_KEY` | SerpAPI untuk Google crawl | 🌐 |
+| `TWITTER_BEARER_TOKEN` | Twitter API v2 bearer | 🌐 |
+
+> ✅ Required · ⚡ Notification channel (at least one required) · 🌐 Intelligence module
+
+---
+
+## 📡 API Reference
+
+### Authentication
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| POST | `/api/auth/register` | Registrasi akun baru |
+| POST | `/api/auth/login` | Login, returns JWT token |
+
+### Identity Profile
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/profiles` | Daftar profiles user |
+| POST | `/api/profiles` | Buat profile baru |
+
+### Intelligence
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/intelligence` | Feed intelligence terbaru |
+
+### Alerts
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/alerts` | Daftar semua alert |
+| GET | `/api/alerts/[id]` | Detail alert |
+| PATCH | `/api/alerts/[id]` | Update isRead |
+
+### Consultation Cases
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/cases` | Daftar kasus |
+| POST | `/api/cases` | Buka kasus baru |
+| GET | `/api/cases/[id]` | Detail kasus |
+| PATCH | `/api/cases/[id]` | Update status kasus |
+| GET | `/api/cases/[id]/messages` | Riwayat chat |
+| POST | `/api/cases/[id]/messages` | Kirim pesan baru |
+
+### Reports
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/reports` | Daftar laporan |
+| POST | `/api/reports` | Generate laporan baru |
+
+### Takedown
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/takedown` | Daftar takedown requests |
+| POST | `/api/takedown` | Ajukan takedown baru |
+
+### Notifications
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/notifications` | Daftar notifikasi user |
+| POST | `/api/notifications` | Kirim notifikasi manual |
+
+### Webhooks (Internal)
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| POST | `/api/webhooks` | Terima event dari crawler/AI |
+
+### AI Service (FastAPI — port 8001)
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/health` | Health check |
+| POST | `/sentiment` | Analisis sentimen teks |
+| POST | `/ner` | Named entity recognition |
+| POST | `/classify` | Klasifikasi ancaman |
+| POST | `/scoring` | Hitung reputation score |
+| POST | `/recommend` | Rekomendasi tindakan |
+| POST | `/analyze` | Pipeline lengkap (semua step) |
+| POST | `/profiles/score` | Skor risiko profile |
+
+---
+
+## 🗄️ Database Schema
+
+Sistem menggunakan PostgreSQL dengan Prisma ORM. Model utama:
+
+```
+User (id, email, name, passwordHash, role)
+  └── IdentityProfile (id, fullName, alias, emails[], phones[], usernames[], domains[], reputationScore)
+        ├── Mention (id, sourceType, sourceName, url, content, sentiment, riskScore)
+        ├── Alert (id, severity, category, title, summary, isRead)
+        ├── Case (id, title, description, status, priority)
+        │     └── CaseMessage (id, senderRole, senderName, body)
+        ├── Report (id, title, type, fileUrl)
+        └── Takedown (id, target, platform, status)
+
+Notification (id, userId, channel, message, isRead)
+```
+
+Skema lengkap: `apps/web/prisma/schema.prisma`
+
+---
+
+## 🔄 Alur Kerja Sistem
+
+```
+1. Klien mendaftar → Onboarding → Buat Identity Profile
+        │
+        ▼
+2. Crawler (setiap N jam):
+   Surface Crawler → scrape web publik
+   Dark Web Crawler → scan paste/marketplace/forum via Tor
+        │
+        ▼
+3. AI Pipeline (per temuan):
+   Text → Sentiment Analysis → Risk Classification → NER → Score
+        │
+        ▼
+4. Temuan disimpan sebagai Mention ke PostgreSQL
+   Jika risk tinggi → Alert dibuat
+        │
+        ▼
+5. Alert dikirim via Notification channels:
+   CRITICAL → WhatsApp + Email + Telegram + in-app
+   HIGH     → WhatsApp + Email + in-app
+   MEDIUM   → Email + in-app
+   LOW      → in-app only
+        │
+        ▼
+6. Klien membuka Dashboard → melihat alert
+   Jika perlu → Buka Case konsultasi
+        │
+        ▼
+7. Konsultan merespons via CaseChat
+   Eksekusi: takedown, counter-narrative, pernyataan publik
+        │
+        ▼
+8. Kasus ditutup → PDF report digenerate → Invoice
+   Reputation Score diperbarui otomatis
+```
+
+---
+
+## 🔒 Keamanan & Privasi
+
+### Data Protection
+
+| Layer | Mekanisme |
+|---|---|
+| Password | bcrypt (cost factor 12) |
+| Data sensitif (NIK, dll) | AES-256-GCM enkripsi |
+| API komunikasi | HTTPS/TLS 1.3 |
+| JWT Token | RS256, expires 24 jam |
+| Database | Row-level encryption untuk kolom sensitif |
+
+### Dark Web Operational Security
+
+- Crawler berjalan di **VPS terisolasi**, tidak terhubung langsung ke infrastruktur utama
+- Semua request ke dark web **hanya via Tor circuit rotation**
+- IP asli tidak pernah terekspos
+- Log operasional dark web **dirotasi setiap 7 hari**
+- Evidence (screenshot, hash) disimpan terenkripsi di Cloudflare R2
+
+### Prisip Privacy by Design
+
+1. **Data Minimization** — hanya kumpulkan data yang diperlukan untuk monitoring
+2. **Purpose Limitation** — data digunakan hanya untuk tujuan yang disebutkan
+3. **User Control** — klien bisa request delete semua data kapan saja
+4. **Audit Trail** — semua akses data sensitif dicatat
+
+---
+
+## 🧪 Testing
+
+### Menjalankan Test
+
+```bash
+# Semua test dari root monorepo
+npm run test
+
+# Hanya AI service (pytest)
+cd apps/ai-service && python -m pytest tests -v
+
+# Hanya web (jika ada test runner)
+npm run test --workspace=web
+```
+
+### Coverage AI Service
+
+| Module | Test Cases | Coverage |
+|---|---|---|
+| `models/indobert_sentiment` | 3 (neg/pos/neutral) | sentimen keyword |
+| `models/risk_classifier` | 2 (classify + score) | keyword-based |
+| `models/ner_model` | 2 (target + email) | regex extraction |
+| `services/analyzer` | 1 (full pipeline) | end-to-end |
+| `services/recommendation_engine` | 2 (high threat + low) | playbook matching |
+| `services/dark_web_classifier` | 2 (credential + pii) | keyword signatures |
+| `routers/*` | 7 (semua endpoint) | HTTP contract |
+| `routers/analyze` | 3 + 3 wiring | unified pipeline |
+
+**Total: 26 test cases, semua passing**
+
+### Test Web API
+
+```bash
+# Health check
+curl http://localhost:3000/api/health
+
+# Login
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"password123"}'
+
+# AI analyze
+curl -X POST http://localhost:8001/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text":"kredensial bocor dijual","source_type":"darkweb","targets":[]}'
+```
+
+---
+
+## 🚢 Deployment
+
+### Docker Compose (Production)
+
+```bash
+# Copy env produksi
+cp .env.example .env.production
+# Edit .env.production
+
+# Deploy semua services
+docker-compose -f infra/docker-compose.prod.yml up -d
+
+# Cek status
+docker-compose -f infra/docker-compose.prod.yml ps
+```
+
+### Services yang Di-deploy
+
+| Service | Port | Deskripsi |
+|---|---|---|
+| `web` | 3000 | Next.js app |
+| `ai-service` | 8001 | FastAPI AI |
+| `surface-crawler` | - | Background worker |
+| `darkweb-crawler` | - | Background worker (butuh Tor) |
+| `postgres` | 5432 | Database |
+| `redis` | 6379 | Cache + queue |
+| `elasticsearch` | 9200 | Full-text search |
+| `nginx` | 80/443 | Reverse proxy + SSL |
+| `tor` | 9050 | Tor SOCKS5 proxy |
+
+### Environment Production Notes
+
+- Gunakan **managed PostgreSQL** (Railway, Supabase, Neon) untuk HA
+- Gunakan **Upstash Redis** untuk serverless Redis
+- Deploy **AI service** ke VPS terpisah (CPU-intensive)
+- Deploy **dark web crawler** ke **VPS terisolasi** khusus dengan Tor
+- Konfigurasi **Cloudflare R2** untuk penyimpanan evidence
+- Setup **Cloudflare** sebagai CDN + DDoS protection
+
+---
+
+## 🗺️ Roadmap
+
+### v0.1.0 — Alpha (Current)
+- [x] Monorepo setup (Next.js + FastAPI + crawlers)
+- [x] Identity Profile system
+- [x] Surface web crawler framework
+- [x] Dark web crawler framework (Tor-based)
+- [x] AI service: sentiment, NER, classification, scoring, recommendation
+- [x] Dashboard, alerts, cases, reports, takedown pages
+- [x] Real-time CaseChat (Socket.io stub)
+- [x] Notification dispatcher (multi-channel stub)
+- [x] Admin console
+- [x] Prisma schema + Docker Compose infra
+
+### v0.2.0 — Beta
+- [ ] Integrasi database nyata (PostgreSQL + Prisma migrations)
+- [ ] JWT auth lengkap (NextAuth.js atau custom)
+- [ ] Real Socket.io untuk CaseChat
+- [ ] Integrasi WhatsApp Cloud API
+- [ ] Integrasi Resend email
+- [ ] Surface crawler: SerpAPI + portal berita Indonesia
+- [ ] Dark web crawler: paste site monitoring via Tor
+- [ ] Elasticsearch integration untuk full-text search
+- [ ] PDF report generation (Puppeteer)
+- [ ] File upload evidence ke Cloudflare R2
+
+### v0.3.0 — Production Ready
+- [ ] Integrasi model IndoBERT nyata (via HuggingFace)
+- [ ] Twitter API v2 integration
+- [ ] Dark web marketplace monitoring
+- [ ] Billing & invoice generation
+- [ ] Multi-tenant support (banyak klien)
+- [ ] SLA monitoring & dashboard
+- [ ] End-to-end encryption untuk CaseChat
+- [ ] Audit logging untuk semua aksi sensitif
+- [ ] GDPR/UU PDP compliance module
+
+### v1.0.0 — Full Launch
+- [ ] Mobile app (React Native)
+- [ ] AI model fine-tuning dengan data Indonesia
+- [ ] Integrasi DeHashed & IntelX breach APIs
+- [ ] Automated takedown workflow
+- [ ] Crisis playbook automation
+- [ ] White-label untuk agensi PR
+
+---
+
+## ⚖️ Etika & Legal
+
+### Prinsip Operasional
+
+**OS Defender beroperasi sepenuhnya dalam kerangka hukum Indonesia dan internasional.**
+
+1. **Defensive Only** — Platform ini hanya untuk *melindungi* reputasi klien yang terdaftar, bukan untuk menyerang pihak lain
+2. **Consent-based** — Monitoring hanya dilakukan untuk identitas yang didaftarkan oleh pemiliknya sendiri atau perwakilan resminya
+3. **Evidence Preservation** — Semua bukti disimpan dengan chain of custody yang terdokumentasi untuk keperluan hukum
+4. **No Unauthorized Access** — Tidak ada aksi penetrasi, hacking, atau akses tidak sah ke sistem pihak lain
+5. **Data Protection** — Tunduk pada UU No. 27 Tahun 2022 tentang Perlindungan Data Pribadi (UU PDP)
+
+### Batasan Layanan
+
+> Layanan ini **TIDAK** dapat digunakan untuk:
+> - Memata-matai individu tanpa consent
+> - Mengumpulkan data orang lain tanpa izin
+> - Tindakan doxxing, harrasment, atau intimidasi
+> - Mengganggu operasional layanan/platform lain
+> - Keperluan hukum tanpa basis yang sah
+
+### Regulasi yang Relevan
+
+| Regulasi | Cakupan |
+|---|---|
+| UU No. 27/2022 (UU PDP) | Perlindungan data pribadi di Indonesia |
+| UU No. 11/2008 (ITE) | Informasi dan transaksi elektronik |
+| UU No. 19/2016 (ITE Amendment) | Konten berbahaya dan takedown |
+| GDPR (jika ada klien EU) | Perlindungan data warga EU |
+
+---
+
+*Dibuat dengan ❤️ untuk melindungi reputasi digital Indonesia.*

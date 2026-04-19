@@ -1,0 +1,17 @@
+{
+  "name": "os-defender",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=web",
+    "lint": "npm run lint --workspace=web",
+    "test": "npm run test:web && npm run test:ai",
+    "test:web": "npm run test --workspace=web --if-present",
+    "test:ai": "cd apps/ai-service && python3 -m pytest tests -q"
+  }
+}
