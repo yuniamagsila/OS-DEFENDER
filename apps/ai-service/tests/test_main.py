@@ -46,7 +46,7 @@ def test_ner_target_hits() -> None:
     response = client.post("/ner", json={"text": "CEO Budi Santoso diduga terlibat", "targets": ["Budi Santoso"]})
     assert response.status_code == 200
     body = response.json()
-    assert "Budi Santoso" in body["target_hits"]
+    assert "budi santoso" in body["target_hits"]
 
 
 def test_scoring_full() -> None:
@@ -167,3 +167,75 @@ def test_dark_web_classifier_pii() -> None:
     from services.dark_web_classifier import classify_dark_web
     result = classify_dark_web("data ini mengandung password dan info rekening bank")
     assert len(result.pii_types) > 0
+
+# ─── Analyze endpoint tests ───────────────────────────────────────────────────
+
+def test_analyze_endpoint_basic() -> None:
+    response = client.post("/analyze", json={
+        "text": "CEO Budi Santoso diduga terlibat penipuan dan fitnah besar",
+        "source_type": "surface",
+        "targets": ["Budi Santoso"],
+    })
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sentiment"] == "NEGATIVE"
+    assert body["risk_score"] > 0
+    assert "budi santoso" in body["target_hits"]
+    assert body["severity"] in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+
+
+def test_analyze_endpoint_darkweb() -> None:
+    response = client.post("/analyze", json={
+        "text": "password combo list bocor database dump dijual",
+        "source_type": "darkweb",
+        "targets": [],
+    })
+    assert response.status_code == 200
+    body = response.json()
+    assert body["category"] == "credential_leak"
+    assert body["severity"] == "CRITICAL"
+
+
+def test_analyze_endpoint_neutral() -> None:
+    response = client.post("/analyze", json={
+        "text": "hari ini cuaca cerah di Jakarta",
+        "source_type": "surface",
+    })
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sentiment"] == "NEUTRAL"
+
+
+# ─── Wired router tests ───────────────────────────────────────────────────────
+
+def test_sentiment_uses_model_layer() -> None:
+    """Sentiment router should use the same logic as the model layer."""
+    from models.indobert_sentiment import predict_sentiment
+    text = "produk ini sangat jelek dan mengecewakan"
+    label, score = predict_sentiment(text)
+    response = client.post("/sentiment", json={"text": text})
+    assert response.status_code == 200
+    assert response.json()["sentiment"] == label
+
+
+def test_classify_uses_model_layer() -> None:
+    """Classify router should use the same logic as the model layer."""
+    from models.risk_classifier import classify_risk
+    text = "database dump password bocor"
+    cat, sev, _ = classify_risk(text, "darkweb")
+    response = client.post("/classify", json={"text": text, "source_type": "darkweb"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["category"] == cat
+    assert body["severity"] == sev
+
+
+def test_recommend_uses_service_layer() -> None:
+    """Recommend router should use the same logic as the service layer."""
+    from services.recommendation_engine import get_recommendations
+    actions, consult = get_recommendations("credential_leak", "CRITICAL", 25)
+    response = client.post("/recommend", json={"severity": "CRITICAL", "category": "credential_leak", "score": 25})
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["actions"]) == len(actions)
+    assert body["consult_recommended"] == consult

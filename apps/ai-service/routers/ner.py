@@ -1,6 +1,7 @@
-import re
 from fastapi import APIRouter
 from pydantic import BaseModel
+
+from models.ner_model import extract_target_entities, extract_all_entities
 
 router = APIRouter()
 
@@ -8,6 +9,7 @@ router = APIRouter()
 class NERInput(BaseModel):
     text: str
     targets: list[str] = []
+    extract_all: bool = False
 
 
 class Entity(BaseModel):
@@ -15,6 +17,7 @@ class Entity(BaseModel):
     label: str
     start: int
     end: int
+    confidence: float = 1.0
 
 
 class NERResult(BaseModel):
@@ -24,19 +27,21 @@ class NERResult(BaseModel):
 
 @router.post("", response_model=NERResult)
 def extract_entities(payload: NERInput) -> NERResult:
-    """Lightweight NER stub — replace with fine-tuned model in production."""
-    entities: list[Entity] = []
-    hits: list[str] = []
+    """Extract named entities and detect target identifier hits."""
+    target_entities = extract_target_entities(payload.text, payload.targets)
+    hits = list({e.text.lower() for e in target_entities})
 
-    for target in payload.targets:
-        for match in re.finditer(re.escape(target), payload.text, re.IGNORECASE):
-            entities.append(Entity(
-                text=match.group(),
-                label="TARGET_ENTITY",
-                start=match.start(),
-                end=match.end(),
-            ))
-            if target not in hits:
-                hits.append(target)
+    all_entities = extract_all_entities(payload.text) if payload.extract_all else []
+    combined = {(e.start, e.end): e for e in (target_entities + all_entities)}
+    entities = [
+        Entity(
+            text=e.text,
+            label=e.label,
+            start=e.start,
+            end=e.end,
+            confidence=e.confidence,
+        )
+        for e in combined.values()
+    ]
 
     return NERResult(entities=entities, target_hits=hits)
