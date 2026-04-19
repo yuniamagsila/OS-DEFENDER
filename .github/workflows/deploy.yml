@@ -1,0 +1,31 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy-web:
+    name: Deploy Web to Vercel
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel
+        run: |
+          echo "Configure Vercel CLI deployment here."
+          echo "Example: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  deploy-ai-service:
+    name: Deploy AI Service to Railway
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Railway
+        run: |
+          echo "Configure Railway CLI deployment here."
+          echo "Example: npx @railway/cli deploy --service ai-service"
