@@ -29,7 +29,7 @@ Kasus ditutup + laporan akhir digenerate
 
 ## SLA (Service Level Agreement)
 
-| Prioritas | Response Time | Resolution Target |
+| Prioritas | Waktu Respons | Target Penyelesaian |
 |---|---|---|
 | CRITICAL | < 1 jam | < 24 jam |
 | HIGH | < 3 jam | < 72 jam |
