@@ -42,7 +42,7 @@ export default function DashboardLayout({
           </ul>
         </nav>
         <div className="border-t border-slate-100 px-5 py-4 text-xs text-slate-400">
-          OS Defender v0.3.0
+          OS Defender v0.4.0
         </div>
       </aside>
 
